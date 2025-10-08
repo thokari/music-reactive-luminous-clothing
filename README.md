@@ -23,6 +23,8 @@ This repository contains the technical components of the **music-reactive lumino
 ## Hardware
 ESP32 and switchboard housings: [Onshape CAD](https://cad.onshape.com/documents/024494521b0d33fed7c6c3d4/w/9dcb6fa1bd2ba2e03fcf2a73/e/ef04a81476ce24776f6ba34d?renderMode=0&uiState=68e6cb3a9794e43e76031f91)  
 
+Solder joint reinforcement: [Onshape CAD](https://cad.onshape.com/documents/6c9c19aba1b72c0649f08df9/w/ad78cbaf727d8cb53e10f7b2/e/3d5b6b8d3a3d566e16adb659?renderMode=0&uiState=68e6d28f3fa232eef392542c)
+
 Custom SSR PCB: solid-state relay board for 2 kHz AC switching (on personal request, e.g. via email to thokari (at) posteo (dot) de, or an issue in this repository)
 
 ## Operation
