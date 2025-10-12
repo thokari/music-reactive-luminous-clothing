@@ -83,7 +83,7 @@ void BluetoothElectronics::sendKwlString(String value, String receiveChar) {
 #if DEBUG
   Serial.println("Sending via BT: " + cmd);
 #endif
-  serialBT.flush();
+  //serialBT.flush();
   serialBT.println(cmd);
 }
 
@@ -96,6 +96,6 @@ void BluetoothElectronics::sendKwlCode(String code) {
 #if DEBUG
   Serial.println("Sending via BT: " + cmd);
 #endif
-  serialBT.flush();
+  //serialBT.flush();
   serialBT.print(cmd);
 }

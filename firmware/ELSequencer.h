@@ -16,12 +16,17 @@ public:
   void lightRandomWires();
   void lightNumRandomWires(uint8_t num);
 
+  void getCurrentPattern(uint8_t* out) const;
+  uint8_t getChannelCount() const { return channelCount; }
+  bool isChannelOn(uint8_t idx) const;
+
 private:
   void initSequencer();
   void playWireStartSequence();
   const uint8_t channelCount;
   const uint8_t* channelOrder;
   uint8_t* channelIndices;
+  uint8_t* currentPattern;
 };
 
 #endif

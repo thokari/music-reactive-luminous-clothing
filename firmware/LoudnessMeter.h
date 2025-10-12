@@ -18,9 +18,10 @@ public:
   };
 
   LoudnessMeter(
-    uint8_t micOut, uint8_t micGain, uint8_t micSampleWindow,
+    uint8_t micOut, uint8_t micGain, uint8_t micSampleWindowMillis,
     uint16_t defaultPeakToPeakLow, uint16_t defaultPeakToPeakHigh,
-    uint16_t defaultRmsLow, uint16_t defaultRmsHigh);
+    uint16_t defaultRmsLow, uint16_t defaultRmsHigh
+  );
 
   void begin();
   void readAudioSample();
@@ -37,7 +38,7 @@ private:
   void sampleRms();
   uint8_t micOut;
   uint8_t micGain;
-  uint8_t micSampleWindow;
+  uint32_t micSampleWindowMicros;
   uint16_t signal;
   uint16_t peakToPeakLow;
   uint16_t peakToPeakHigh;

@@ -4,13 +4,13 @@
 #include "LoudnessMeter.h"
 
 LoudnessMeter::LoudnessMeter(
-  uint8_t micOut, uint8_t micGain, uint8_t micSampleWindow,
+  uint8_t micOut, uint8_t micGain, uint8_t micSampleWindowMillis,
   uint16_t defaultPeakToPeakLow, uint16_t defaultPeakToPeakHigh,
   uint16_t defaultRmsLow, uint16_t defaultRmsHigh) {
 
   this->micOut = micOut;
   this->micGain = micGain;
-  this->micSampleWindow = micSampleWindow;
+  this->micSampleWindowMicros = (uint32_t)micSampleWindowMillis * 1000UL;
   this->peakToPeakLow = defaultPeakToPeakLow;
   this->peakToPeakHigh = defaultPeakToPeakHigh;
   this->rmsLow = defaultRmsLow;
@@ -41,8 +41,8 @@ void LoudnessMeter::readAudioSample() {
 void LoudnessMeter::samplePeakToPeak() {
   uint16_t currentMin = MAX_SIGNAL;
   uint16_t currentMax = 0;
-  uint32_t t0 = millis();
-  while (millis() - t0 < micSampleWindow) {
+  const uint32_t start = micros();
+  while (micros() - start < micSampleWindowMicros) {
     uint16_t currentSample = analogRead(micOut);
     currentMin = min(currentMin, currentSample);
     currentMax = max(currentMax, currentSample);
@@ -52,15 +52,20 @@ void LoudnessMeter::samplePeakToPeak() {
 
 void LoudnessMeter::sampleRms() {
   uint16_t currentSample = 0;
-  uint32_t currentSum = 0;
-  uint32_t t0 = millis();
+  uint64_t currentSum = 0;
+  const uint32_t start = micros();
   uint32_t sampleCount = 0;
-  while (millis() - t0 < micSampleWindow) {
+  while (micros() - start < micSampleWindowMicros) {
     currentSample = analogRead(micOut);
-    currentSum += pow(currentSample, 2);
+    currentSum += (uint32_t)currentSample * currentSample;
     sampleCount++;
   }
-  signal = sqrt(currentSum / sampleCount);
+  if (sampleCount == 0) {
+    signal = 0;
+    return;
+  }
+  float meanSquare = (float)currentSum / (float)sampleCount;
+  signal = (uint16_t)sqrtf(meanSquare);
 }
 
 void LoudnessMeter::setLow(uint16_t low) {
