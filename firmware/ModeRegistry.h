@@ -5,7 +5,7 @@
 
 enum class ModeType : uint8_t {
   Reactive = 0,
-  Fixed = 1
+  Periodic = 1
 };
 
 struct Mode {

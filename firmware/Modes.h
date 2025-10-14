@@ -4,7 +4,7 @@
 void reactivePulse();
 void reactivePulseWithDecay();
 void reactiveRandomSimple();
-void reactiveRandomSwap();
+void reactiveRandomHighLow();
 
 void fixedPulseUp();
 void fixedPulseUpDown();

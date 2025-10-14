@@ -1,7 +1,6 @@
 #define DEBUG 0
 #define DEBUG_BAUD_RATE 57600
 #define USE_PUSH_BUTTONS 0
-#define GRAPH_MIN_INTERVAL_MS 20
 
 // LoudnessMeter
 #include "LoudnessMeter.h"
@@ -142,81 +141,39 @@ void reactivePulseWithDecay() {
 }
 
 void reactiveRandomSimple() {
-  if (mappedSignal > 6) {
+  static uint16_t last = 0;
+  bool rising = mappedSignal > last;
+  last = mappedSignal;
+  if (rising && mappedSignal > 6) {
     sequencer.lightNumRandomWires(numWires);
   }
 }
 
-void reactiveRandomSwap() {
-  const uint8_t N = ACTIVE_CHANNELS;
-  uint8_t pattern[N];
-  sequencer.getCurrentPattern(pattern);
+void reactiveRandomHighLow() {
+  static uint16_t last = 0;
+  static uint32_t lastHighMs = 0;
 
-  // Build ON/OFF lists
-  uint8_t onIdx[N];
-  uint8_t offIdx[N];
-  uint8_t onCount = 0, offCount = 0;
-  for (uint8_t i = 0; i < N; i++) {
-    if (pattern[i]) onIdx[onCount++] = i; else offIdx[offCount++] = i;
+  const uint8_t TH_MED = 5;
+  const uint8_t TH_HIGH = 7;
+  const uint32_t LOW_MODE_COOLDOWN_MS = 1000;
+
+  uint16_t cur = mappedSignal;
+  uint32_t now = millis();
+  bool rising = cur > last;
+  last = cur;
+
+  if (!rising) return;
+
+  if (cur >= TH_HIGH) {
+    lastHighMs = now;
+    uint8_t k = (numWires > ACTIVE_CHANNELS) ? ACTIVE_CHANNELS : numWires;
+    sequencer.lightNumRandomWires(k);
+    return;
   }
 
-  // Maintain exactly numWires lit
-  uint8_t target = numWires > N ? N : numWires;
-  if (onCount < target) {
-    uint8_t need = target - onCount;
-    for (uint8_t k = 0; k < need && offCount > 0; ++k) {
-      uint8_t pick = random(offCount);
-      uint8_t idx = offIdx[pick];
-      pattern[idx] = 1;
-      offIdx[pick] = offIdx[offCount - 1];
-      offCount--;
-      onIdx[onCount++] = idx;
-    }
-  } else if (onCount > target) {
-    uint8_t need = onCount - target;
-    for (uint8_t k = 0; k < need && onCount > 0; ++k) {
-      uint8_t pick = random(onCount);
-      uint8_t idx = onIdx[pick];
-      pattern[idx] = 0;
-      onIdx[pick] = onIdx[onCount - 1];
-      onCount--;
-      offIdx[offCount++] = idx;
-    }
+  if (cur >= TH_MED && (now - lastHighMs) >= LOW_MODE_COOLDOWN_MS) {
+    sequencer.lightNumRandomWires(1);
   }
-
-  if (mappedSignal > 6) {
-    // Replace up to 'target' currently-on wires with new ones from OFF
-    if (target > 0 && offCount > 0 && onCount > 0) {
-      uint8_t k = offCount < target ? offCount : target;
-      for (uint8_t t = 0; t < k; ++t) {
-        uint8_t pickOff = random(offCount);
-        uint8_t addIdx = offIdx[pickOff];
-        offIdx[pickOff] = offIdx[offCount - 1];
-        offCount--;
-
-        uint8_t pickOn = random(onCount);
-        uint8_t remIdx = onIdx[pickOn];
-        pattern[remIdx] = 0;
-        onIdx[pickOn] = onIdx[onCount - 1];
-        onCount--;
-        offIdx[offCount++] = remIdx;
-
-        pattern[addIdx] = 1;
-        onIdx[onCount++] = addIdx;
-      }
-    }
-  } else if (mappedSignal > 4) {
-    // Low: swap exactly one if possible
-    if (onCount > 0 && offCount > 0) {
-      uint8_t pickOn = random(onCount);
-      uint8_t pickOff = random(offCount);
-      uint8_t idxOn = onIdx[pickOn];
-      uint8_t idxOff = offIdx[pickOff];
-      pattern[idxOn] = 0;
-      pattern[idxOff] = 1;
-    }
-  }
-  sequencer.lightWiresByPattern(pattern);
 }
 
 void fixedPulseUp() {
@@ -318,11 +275,11 @@ void cmdSetGain(const String& parameter) {
 }
 
 void cmdUp(const String&) {
-  nextMode();
+  prevMode();
 }
 
 void cmdDown(const String&) {
-  prevMode();
+  nextMode();
 }
 
 void cmdRight(const String&) {
@@ -384,10 +341,6 @@ void printMode() {
 }
 
 void printToBluetooth() {
-  static uint32_t lastGraphMs = 0;
-  uint32_t now = millis();
-  if (now - lastGraphMs < GRAPH_MIN_INTERVAL_MS) return;
-  lastGraphMs = now;
   String data = String(mic.getSignal()) + "," + String(mic.getLow()) + "," + String(mic.getHigh());
   bluetooth.sendKwlString(data, "G");
 }

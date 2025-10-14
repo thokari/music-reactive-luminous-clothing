@@ -4,15 +4,15 @@
 static void onEnterNoop() {}
 
 const Mode modes[] = {
-  { "rPulse", ModeType::Reactive, reactivePulse, nullptr },
-  { "rPulseDecay", ModeType::Reactive, reactivePulseWithDecay, nullptr },
-  { "rRand", ModeType::Reactive, reactiveRandomSimple, nullptr },
-  { "rRandSwap", ModeType::Reactive, reactiveRandomSwap, nullptr },
-  { "fPulseUp", ModeType::Fixed, fixedPulseUp, nullptr },
-  { "fPulseUpDown", ModeType::Fixed, fixedPulseUpDown, nullptr },
-  { "fFlash", ModeType::Fixed, fixedFlash, nullptr },
-  { "fFlashDecay", ModeType::Fixed, fixedFlashWithDecay, nullptr },
-  { "fRandom", ModeType::Fixed, fixedRandom, nullptr },
+  { "reactivePulse", ModeType::Reactive, reactivePulse, nullptr },
+  { "reactivePulseDecay", ModeType::Reactive, reactivePulseWithDecay, nullptr },
+  { "reactiveRandom", ModeType::Reactive, reactiveRandomSimple, nullptr },
+  { "reactiveRandomHL", ModeType::Reactive, reactiveRandomHighLow, nullptr },
+  { "periodicPulseUp", ModeType::Periodic, fixedPulseUp, nullptr },
+  { "periodicPulseUpDown", ModeType::Periodic, fixedPulseUpDown, nullptr },
+  { "periodicFlash", ModeType::Periodic, fixedFlash, nullptr },
+  { "periodicFlashDecay", ModeType::Periodic, fixedFlashWithDecay, nullptr },
+  { "periodicRandom", ModeType::Periodic, fixedRandom, nullptr },
 };
 
 uint8_t getModeCount() {
