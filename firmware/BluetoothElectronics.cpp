@@ -1,5 +1,5 @@
-#define DEBUG 0
-#define DEBUG_BAUD_RATE 57600
+#define DEBUG 1
+#define DEBUG_BAUD_RATE 115200
 
 #include "BluetoothElectronics.h"
 #include "BluetoothSerial.h"

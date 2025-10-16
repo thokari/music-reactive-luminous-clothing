@@ -1,21 +1,34 @@
-#define DEBUG 0
-#define DEBUG_BAUD_RATE 57600
+#define DEBUG 1
+#define DEBUG_BAUD_RATE 115200
 #define USE_PUSH_BUTTONS 0
+#define USE_I2S_MIC 1
 
-// LoudnessMeter
-#include "LoudnessMeter.h"
-#define MIC_OUT 35
-#define MIC_GAIN 32
+// LoudnessMeter (ADC vs I2S)
 #define MIC_SAMPLE_WINDOW 14 // ms
 #define DEFAULT_P2P_LOW 1000
 #define DEFAULT_P2P_HIGH 4000
 #define DEFAULT_RMS_LOW 1000
 #define DEFAULT_RMS_HIGH 1400
 #define MAX_MAPPED_VALUE 8
-LoudnessMeter mic = LoudnessMeter(
-  MIC_OUT, MIC_GAIN, MIC_SAMPLE_WINDOW,
+
+//#if USE_I2S_MIC
+#include "LoudnessMeterI2S.h"
+LoudnessMeterI2S mic(
+  14 /* SCK*/, 27 /* WS*/, 19 /* SD*/,
+  MIC_SAMPLE_WINDOW,
   DEFAULT_P2P_LOW, DEFAULT_P2P_HIGH,
-  DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH);
+  DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH,
+  16000
+);
+//#else
+//#include "LoudnessMeter.h"
+//#define MIC_OUT 35
+//#define MIC_GAIN 32
+//LoudnessMeter mic = LoudnessMeter(
+//  MIC_OUT, MIC_GAIN, MIC_SAMPLE_WINDOW,
+//  DEFAULT_P2P_LOW, DEFAULT_P2P_HIGH,
+//  DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH);
+//#endif
 uint16_t mappedSignal;
 
 // Bluetooth
@@ -253,24 +266,34 @@ void cmdDebugOff(const String&) {
 }
 
 void cmdSetSamplingP2P(const String&) {
-  mic.setMode(LoudnessMeter::PEAK_TO_PEAK);
+  #if USE_I2S_MIC
+    mic.setMode(LoudnessMeterI2S::PEAK_TO_PEAK);
+  #else
+    mic.setMode(LoudnessMeter::PEAK_TO_PEAK);
+  #endif
   bluetooth.sendKwlString("P2P", "P");
 }
 
 void cmdSetSamplingRMS(const String&) {
-  mic.setMode(LoudnessMeter::RMS);
+  #if USE_I2S_MIC
+    mic.setMode(LoudnessMeterI2S::RMS);
+  #else
+    mic.setMode(LoudnessMeter::RMS);
+  #endif
   bluetooth.sendKwlString("RMS", "P");
 }
 
 void cmdSetGain(const String& parameter) {
   int gain = parameter.toInt();
-  if (gain == 1) {
-    mic.setGain(LoudnessMeter::LOW_GAIN);
-  } else if (gain == 2) {
-    mic.setGain(LoudnessMeter::MEDIUM_GAIN);
-  } else if (gain == 3) {
-    mic.setGain(LoudnessMeter::HIGH_GAIN);
-  }
+  #if !USE_I2S_MIC
+    if (gain == 1) {
+      mic.setGain(LoudnessMeter::LOW_GAIN);
+    } else if (gain == 2) {
+      mic.setGain(LoudnessMeter::MEDIUM_GAIN);
+    } else if (gain == 3) {
+      mic.setGain(LoudnessMeter::HIGH_GAIN);
+    }
+  #endif
   bluetooth.sendKwlValue(gain, "N");
 }
 
