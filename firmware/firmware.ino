@@ -13,12 +13,15 @@
 
 //#if USE_I2S_MIC
 #include "LoudnessMeterI2S.h"
-LoudnessMeterI2S mic(
-  14 /* SCK*/, 27 /* WS*/, 19 /* SD*/,
+#define BCK_BCLK 26
+#define WS_LRCL 25
+#define SD_DOUT 22
+ LoudnessMeterI2S mic(
+  BCK_BCLK, WS_LRCL, SD_DOUT,
   MIC_SAMPLE_WINDOW,
   DEFAULT_P2P_LOW, DEFAULT_P2P_HIGH,
   DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH,
-  16000
+  22050
 );
 //#else
 //#include "LoudnessMeter.h"
