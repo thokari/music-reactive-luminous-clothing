@@ -25,13 +25,13 @@ public:
 private:
   void samplePeakToPeak();
   void sampleRms();
-  float getScaleFactor() const;  // Helper to get scale factor based on gain
+  float getScaleFactor() const;
   
   uint8_t bckPin, wsPin, sdPin;
   uint32_t sampleRate;
   uint32_t windowMicros;
-  volatile uint16_t signal = 0;
+  uint16_t signal = 0;
   uint16_t peakToPeakLow, peakToPeakHigh, rmsLow, rmsHigh;
   Mode mode = PEAK_TO_PEAK;
-  Gain gain = HIGH_GAIN;  // Add gain field!
+  Gain gain = HIGH_GAIN;
 };

@@ -6,10 +6,10 @@ void reactivePulseWithDecay();
 void reactiveRandomSimple();
 void reactiveRandomHighLow();
 
-void fixedPulseUp();
-void fixedPulseUpDown();
-void fixedFlash();
-void fixedFlashWithDecay();
-void fixedRandom();
+void periodicPulseUp();
+void periodicPulseUpDown();
+void periodicFlash();
+void periodicFlashWithDecay();
+void periodicRandom();
 
 #endif // MODES_H

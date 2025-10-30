@@ -1,9 +1,8 @@
 #define DEBUG 1
 #define DEBUG_BAUD_RATE 115200
 #define USE_PUSH_BUTTONS 0
-#define USE_I2S_MIC 1
 
-// LoudnessMeter (ADC vs I2S)
+// LoudnessMeter (I2S)
 #define MIC_SAMPLE_WINDOW 14 // ms
 #define DEFAULT_P2P_LOW 1000
 #define DEFAULT_P2P_HIGH 4000
@@ -11,28 +10,25 @@
 #define DEFAULT_RMS_HIGH 1400
 #define MAX_MAPPED_VALUE 8
 
-//#if USE_I2S_MIC
 #include "LoudnessMeterI2S.h"
 #define BCK_BCLK 26
 #define WS_LRCL 25
-#define SD_DOUT 22
- LoudnessMeterI2S mic(
+#define SD_DOUT 27
+LoudnessMeterI2S mic(
   BCK_BCLK, WS_LRCL, SD_DOUT,
   MIC_SAMPLE_WINDOW,
   DEFAULT_P2P_LOW, DEFAULT_P2P_HIGH,
   DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH,
   22050
 );
-//#else
-//#include "LoudnessMeter.h"
-//#define MIC_OUT 35
-//#define MIC_GAIN 32
-//LoudnessMeter mic = LoudnessMeter(
-//  MIC_OUT, MIC_GAIN, MIC_SAMPLE_WINDOW,
-//  DEFAULT_P2P_LOW, DEFAULT_P2P_HIGH,
-//  DEFAULT_RMS_LOW, DEFAULT_RMS_HIGH);
-//#endif
 uint16_t mappedSignal;
+
+// Parallel processing
+#include "freertos/FreeRTOS.h"
+#include "freertos/task.h"
+#include "freertos/queue.h"
+QueueHandle_t audioQueue = NULL;
+TaskHandle_t audioTaskHandle = NULL;
 
 // Bluetooth
 #include "BluetoothElectronics.h"
@@ -59,7 +55,7 @@ ELSequencer sequencer = ELSequencer(channelOrder, ACTIVE_CHANNELS);
 uint8_t mode = 0;
 uint8_t numWires = 8;
 #define NUM_DELAYS 10
-uint16_t fixedModeDelays[NUM_DELAYS] = { 10, 25, 33, 50, 66, 100, 166, 250, 500, 1000 };
+uint16_t periodicModeDelays[NUM_DELAYS] = { 10, 25, 33, 50, 66, 100, 166, 250, 500, 1000 };
 uint8_t currentDelayIndex = 1;
 uint32_t timer = 0;
 #define ADDITIONAL_GND_PIN 18
@@ -79,15 +75,23 @@ void setup() {
   registerBluetoothCommands();
   bluetooth.begin();
   mic.begin();
-#if USE_RADIO
-  initRadio();
-#endif
 #if USE_PUSH_BUTTONS
   pushButtonsBegin(BUTTON_1_PIN, DEBOUNCE_MS, BUTTON_PAUSE_MS);
 #endif
   sequencer.begin();
   pinMode(ADDITIONAL_GND_PIN, OUTPUT);
   digitalWrite(ADDITIONAL_GND_PIN, LOW);
+
+  audioQueue = xQueueCreate(1, sizeof(uint16_t));
+  xTaskCreatePinnedToCore(
+    audioSamplingTask,
+    "AudioSampling",
+    4096,             // Stack size (bytes)
+    NULL,             // Parameters
+    1,                // Priority (1 = low, higher than idle)
+    &audioTaskHandle,
+    1                 // Core
+  );
 #if DEBUG
   Serial.println("Setup complete");
 #endif
@@ -97,27 +101,34 @@ boolean outputToBluetooth = false;
 uint32_t loopBegin = 0;
 
 void loop() {
-  loopBegin = millis();
+  loopBegin = micros();
 #if USE_PUSH_BUTTONS
   pushButtonsUpdate(loopBegin);
   if (pushButtonsShouldSkipLoop()) {
     if (pushButtonConsumePressed()) {
-      fixedFlashWithDecay();
+      periodicFlashWithDecay();
     }
     return;
   }
 #endif
   bluetooth.handleInput();
   if (isReactive(mode)) {
-    mic.readAudioSample();
-    processSample();
-    modes[mode].run();
-    if (outputToBluetooth) {
-      printToBluetooth();
-    }
+    uint16_t signal;
+    if (xQueueReceive(audioQueue, &signal, portMAX_DELAY) == pdTRUE) {
 #if DEBUG
-    printToSerialMonitor();
+      Serial.print(signal);
+      Serial.print(",");
 #endif
+      uint16_t constrainedSignal = constrain(signal, mic.getLow(), mic.getHigh());
+      mappedSignal = map(constrainedSignal, mic.getLow(), mic.getHigh(), 0, ACTIVE_CHANNELS);
+      modes[mode].run();
+      if (outputToBluetooth) {
+        printToBluetooth(signal);
+      }
+#if DEBUG
+      printToSerialMonitor();
+#endif
+    }
   } else {
     modes[mode].run();
   }
@@ -192,14 +203,14 @@ void reactiveRandomHighLow() {
   }
 }
 
-void fixedPulseUp() {
+void periodicPulseUp() {
   for (int i = 0; i <= ACTIVE_CHANNELS; i++) {
     sequencer.lightWiresAtIndex(i);
     delay(currentDelay());
   }
 }
 
-void fixedPulseUpDown() {
+void periodicPulseUpDown() {
   for (int i = 0; i <= ACTIVE_CHANNELS - 1; i++) {
     sequencer.lightWiresAtIndex(i);
     delay(currentDelay());
@@ -210,14 +221,14 @@ void fixedPulseUpDown() {
   }
 }
 
-void fixedFlash() {
+void periodicFlash() {
   sequencer.lightAll();
   delay(currentDelay());
   sequencer.lightNone();
   delay(currentDelay());
 }
 
-void fixedFlashWithDecay() {
+void periodicFlashWithDecay() {
   sequencer.lightAll();
   delay(currentDelay());
   for (int i = ACTIVE_CHANNELS - 1; i >= 0; i--) {
@@ -226,7 +237,7 @@ void fixedFlashWithDecay() {
   }
 }
 
-void fixedRandom() {
+void periodicRandom() {
   sequencer.lightRandomWires();
   delay(currentDelay());
 }
@@ -269,34 +280,24 @@ void cmdDebugOff(const String&) {
 }
 
 void cmdSetSamplingP2P(const String&) {
-  #if USE_I2S_MIC
-    mic.setMode(LoudnessMeterI2S::PEAK_TO_PEAK);
-  #else
-    mic.setMode(LoudnessMeter::PEAK_TO_PEAK);
-  #endif
+  mic.setMode(LoudnessMeterI2S::PEAK_TO_PEAK);
   bluetooth.sendKwlString("P2P", "P");
 }
 
 void cmdSetSamplingRMS(const String&) {
-  #if USE_I2S_MIC
-    mic.setMode(LoudnessMeterI2S::RMS);
-  #else
-    mic.setMode(LoudnessMeter::RMS);
-  #endif
+  mic.setMode(LoudnessMeterI2S::RMS);
   bluetooth.sendKwlString("RMS", "P");
 }
 
 void cmdSetGain(const String& parameter) {
   int gain = parameter.toInt();
-  #if !USE_I2S_MIC
-    if (gain == 1) {
-      mic.setGain(LoudnessMeter::LOW_GAIN);
-    } else if (gain == 2) {
-      mic.setGain(LoudnessMeter::MEDIUM_GAIN);
-    } else if (gain == 3) {
-      mic.setGain(LoudnessMeter::HIGH_GAIN);
-    }
-  #endif
+  if (gain == 1) {
+    mic.setGain(LoudnessMeterI2S::LOW_GAIN);
+  } else if (gain == 2) {
+    mic.setGain(LoudnessMeterI2S::MEDIUM_GAIN);
+  } else if (gain == 3) {
+    mic.setGain(LoudnessMeterI2S::HIGH_GAIN);
+  }
   bluetooth.sendKwlValue(gain, "N");
 }
 
@@ -366,23 +367,22 @@ void printMode() {
   }
 }
 
-void printToBluetooth() {
-  String data = String(mic.getSignal()) + "," + String(mic.getLow()) + "," + String(mic.getHigh());
+void printToBluetooth(uint16_t signal) {
+  String data = String(signal) + "," + String(mic.getLow()) + "," + String(mic.getHigh());
   bluetooth.sendKwlString(data, "G");
 }
 
 // ---------------- PROCESSING ----------------
-void processSample() {
-#if DEBUG
-  Serial.print(mic.getSignal());
-  Serial.print(",");
-#endif
-  uint16_t constrainedSignal = constrain(mic.getSignal(), mic.getLow(), mic.getHigh());
-  mappedSignal = map(constrainedSignal, mic.getLow(), mic.getHigh(), 0, ACTIVE_CHANNELS);
+void audioSamplingTask(void* parameter) {
+  while (true) {
+    mic.readAudioSample();
+    uint16_t signal = mic.getSignal();
+    xQueueOverwrite(audioQueue, &signal);
+  }
 }
 
 uint16_t currentDelay() {
-  return fixedModeDelays[currentDelayIndex];
+  return periodicModeDelays[currentDelayIndex];
 }
 
 // ---------------- DEBUGGING ----------------
@@ -391,6 +391,6 @@ void printToSerialMonitor() {
   Serial.print(",");
   Serial.print(mic.getHigh());
   Serial.print(",");
-  Serial.print(millis() - loopBegin);
+  Serial.print(micros() - loopBegin);
   Serial.println();
 }

@@ -8,11 +8,11 @@ const Mode modes[] = {
   { "reactivePulseDecay", ModeType::Reactive, reactivePulseWithDecay, nullptr },
   { "reactiveRandom", ModeType::Reactive, reactiveRandomSimple, nullptr },
   { "reactiveRandomHL", ModeType::Reactive, reactiveRandomHighLow, nullptr },
-  { "periodicPulseUp", ModeType::Periodic, fixedPulseUp, nullptr },
-  { "periodicPulseUpDown", ModeType::Periodic, fixedPulseUpDown, nullptr },
-  { "periodicFlash", ModeType::Periodic, fixedFlash, nullptr },
-  { "periodicFlashDecay", ModeType::Periodic, fixedFlashWithDecay, nullptr },
-  { "periodicRandom", ModeType::Periodic, fixedRandom, nullptr },
+  { "periodicPulseUp", ModeType::Periodic, periodicPulseUp, nullptr },
+  { "periodicPulseUpDown", ModeType::Periodic, periodicPulseUpDown, nullptr },
+  { "periodicFlash", ModeType::Periodic, periodicFlash, nullptr },
+  { "periodicFlashDecay", ModeType::Periodic, periodicFlashWithDecay, nullptr },
+  { "periodicRandom", ModeType::Periodic, periodicRandom, nullptr },
 };
 
 uint8_t getModeCount() {
