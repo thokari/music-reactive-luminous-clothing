@@ -26,7 +26,7 @@ LoudnessMeterI2S::LoudnessMeterI2S(uint8_t bckPin, uint8_t wsPin, uint8_t sdPin,
   windowMicros((uint32_t)sampleWindowMs * 1000UL),
   peakToPeakLow(defaultPeakToPeakLow), peakToPeakHigh(defaultPeakToPeakHigh),
   rmsLow(defaultRmsLow), rmsHigh(defaultRmsHigh),
-  gain(HIGH_GAIN),
+  scaleFactor(15),
   mode(PEAK_TO_PEAK),
   signal(0) {}
 
@@ -88,8 +88,7 @@ void LoudnessMeterI2S::samplePeakToPeak() {
     }
   }
   int32_t rawVolume = globalMax - globalMin;
-  float scaleFactor = getScaleFactor();
-  signal = (uint16_t)(rawVolume / scaleFactor);
+  signal = (uint32_t)(rawVolume / scaleFactor);  
 }
 
 void LoudnessMeterI2S::sampleRms() {
@@ -121,21 +120,7 @@ void LoudnessMeterI2S::sampleRms() {
   }
   float meanSquare = (float)sumSquares / (float)sampleCount;
   int32_t rawRms = (int32_t)sqrtf(meanSquare);
-  float scaleFactor = getScaleFactor();
-  signal = (uint16_t)(rawRms / scaleFactor);
-}
-
-float LoudnessMeterI2S::getScaleFactor() const {
-  switch(gain) {
-    case LOW_GAIN:
-      return 300.0;
-    case MEDIUM_GAIN:
-      return 60.0;
-    case HIGH_GAIN:
-      return 15.00;
-    default:
-      return 15.00;
-  }
+  signal = (uint32_t)(rawRms / scaleFactor);
 }
 
 void LoudnessMeterI2S::setLow(uint16_t low) {

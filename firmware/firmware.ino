@@ -1,4 +1,4 @@
-#define DEBUG 1
+#define DEBUG 0
 #define DEBUG_BAUD_RATE 115200
 #define USE_PUSH_BUTTONS 0
 
@@ -41,15 +41,15 @@ BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
 #include "ModeRegistry.h"
 #define CHANNEL_A 13
 #define CHANNEL_B 15
-#define CHANNEL_C 2
-#define CHANNEL_D 0
-#define CHANNEL_E 4
-#define CHANNEL_F 16
+#define CHANNEL_C 0
+#define CHANNEL_D 2
+#define CHANNEL_E 16
+#define CHANNEL_F 4
 #define CHANNEL_G 17
 #define CHANNEL_H 5
 #define ACTIVE_CHANNELS 8
 const uint8_t channelOrder[ACTIVE_CHANNELS] = {
-  CHANNEL_A, CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G, CHANNEL_H
+  CHANNEL_C, CHANNEL_D, CHANNEL_B, CHANNEL_A, CHANNEL_H, CHANNEL_G, CHANNEL_E, CHANNEL_F
 };
 ELSequencer sequencer = ELSequencer(channelOrder, ACTIVE_CHANNELS);
 uint8_t mode = 0;
@@ -290,15 +290,10 @@ void cmdSetSamplingRMS(const String&) {
 }
 
 void cmdSetGain(const String& parameter) {
-  int gain = parameter.toInt();
-  if (gain == 1) {
-    mic.setGain(LoudnessMeterI2S::LOW_GAIN);
-  } else if (gain == 2) {
-    mic.setGain(LoudnessMeterI2S::MEDIUM_GAIN);
-  } else if (gain == 3) {
-    mic.setGain(LoudnessMeterI2S::HIGH_GAIN);
-  }
-  bluetooth.sendKwlValue(gain, "N");
+  uint16_t gain = parameter.toInt();
+  
+  mic.setGain(gain);
+  bluetooth.sendKwlValue((int)gain, "N");
 }
 
 void cmdUp(const String&) {
