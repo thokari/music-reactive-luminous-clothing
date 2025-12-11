@@ -7,10 +7,10 @@
 #define MIC_OUT 35
 #define MIC_GAIN 32
 #define MIC_SAMPLE_WINDOW 14 // ms
-#define DEFAULT_P2P_LOW 1000
-#define DEFAULT_P2P_HIGH 4000
-#define DEFAULT_RMS_LOW 1000
-#define DEFAULT_RMS_HIGH 1400
+#define DEFAULT_P2P_LOW 800
+#define DEFAULT_P2P_HIGH 1950
+#define DEFAULT_RMS_LOW 800
+#define DEFAULT_RMS_HIGH 1950
 #define MAX_MAPPED_VALUE 8
 LoudnessMeter mic = LoudnessMeter(
   MIC_OUT, MIC_GAIN, MIC_SAMPLE_WINDOW,
@@ -20,12 +20,11 @@ uint16_t mappedSignal;
 
 // Bluetooth
 #include "BluetoothElectronics.h"
-#define DEVICE_NAME "LOLIN32 Lite - TEST"
+#define DEVICE_NAME "LOLIN32 Lite"
 BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
 
 // EL Sequencer
 #include "ELSequencer.h"
-#include "Modes.h"
 #include "ModeRegistry.h"
 #define CHANNEL_A 13
 #define CHANNEL_B 15
@@ -37,13 +36,13 @@ BluetoothElectronics bluetooth = BluetoothElectronics(DEVICE_NAME);
 #define CHANNEL_H 5
 #define ACTIVE_CHANNELS 8
 const uint8_t channelOrder[ACTIVE_CHANNELS] = {
-  CHANNEL_A, CHANNEL_B, CHANNEL_C, CHANNEL_D, CHANNEL_E, CHANNEL_F, CHANNEL_G, CHANNEL_H
+  CHANNEL_C, CHANNEL_D, CHANNEL_B, CHANNEL_A, CHANNEL_H, CHANNEL_G, CHANNEL_E, CHANNEL_F
 };
 ELSequencer sequencer = ELSequencer(channelOrder, ACTIVE_CHANNELS);
 uint8_t mode = 0;
 uint8_t numWires = 8;
 #define NUM_DELAYS 10
-uint16_t fixedModeDelays[NUM_DELAYS] = { 10, 25, 33, 50, 66, 100, 166, 250, 500, 1000 };
+uint16_t periodicModeDelays[NUM_DELAYS] = { 10, 25, 33, 50, 66, 100, 166, 250, 500, 1000 };
 uint8_t currentDelayIndex = 1;
 uint32_t timer = 0;
 #define ADDITIONAL_GND_PIN 18
@@ -86,7 +85,7 @@ void loop() {
   pushButtonsUpdate(loopBegin);
   if (pushButtonsShouldSkipLoop()) {
     if (pushButtonConsumePressed()) {
-      fixedFlashWithDecay();
+      periodicFlashWithDecay();
     }
     return;
   }
@@ -108,6 +107,30 @@ void loop() {
 }
 
 // ---------------- MODE DEFINITIONS ----------------
+const Mode modes[] = {
+  { "rPulse", ModeType::Reactive, reactivePulse, nullptr },
+  { "rPulseDecay", ModeType::Reactive, reactivePulseWithDecay, nullptr },
+  { "rBeatPulseDecay", ModeType::Reactive, reactiveBeatPulseDecay, nullptr },
+  { "rRandom", ModeType::Reactive, reactiveRandomSimple, nullptr },
+  { "rRandomSwap", ModeType::Reactive, reactiveRandomSwap, nullptr },
+  { "rRandomHL", ModeType::Reactive, reactiveRandomHighLow, nullptr },
+  { "rLinearSweep", ModeType::Reactive, reactiveLinearSweep, nullptr },
+  { "pPulseUp", ModeType::Periodic, periodicPulseUp, nullptr },
+  { "pPulseUpDown", ModeType::Periodic, periodicPulseUpDown, nullptr },
+  { "pFlash", ModeType::Periodic, periodicFlash, nullptr },
+  { "pFlashDecay", ModeType::Periodic, periodicFlashWithDecay, nullptr },
+  { "pRandom", ModeType::Periodic, periodicRandom, nullptr },
+};
+
+uint8_t getModeCount() {
+  return (uint8_t)(sizeof(modes) / sizeof(modes[0]));
+}
+
+bool isReactive(uint8_t idx) {
+  if (idx >= getModeCount()) return false;
+  return modes[idx].type == ModeType::Reactive;
+}
+
 void reactivePulse() {
   if (numWires == 1) {
     mappedSignal > 0 ? sequencer.lightWiresAtIndex(mappedSignal - 1) : sequencer.lightNumWires(0);
@@ -140,6 +163,31 @@ void reactivePulseWithDecay() {
   sequencer.lightNumWiresUpToWire(numWires, displayLevel);
 }
 
+uint16_t beatDisplayLevel = 0;
+uint32_t beatLastDecayMs = 0;
+void reactiveBeatPulseDecay() {
+  const uint8_t THRESHOLD = 6;
+
+  if (mappedSignal >= THRESHOLD && mappedSignal > beatDisplayLevel) {
+    beatDisplayLevel = mappedSignal;
+    beatLastDecayMs = millis();
+  } else {
+    if (beatDisplayLevel > 0) {
+      uint32_t now = millis();
+      uint16_t releaseMs = currentDelay();
+      if (releaseMs == 0) {
+        releaseMs = MIC_SAMPLE_WINDOW;
+      }
+      if (now - beatLastDecayMs >= releaseMs) {
+        beatDisplayLevel -= 1;
+        beatLastDecayMs = now;
+      }
+    }
+  }
+
+  sequencer.lightNumWiresUpToWire(numWires, beatDisplayLevel);
+}
+
 void reactiveRandomSimple() {
   static uint16_t last = 0;
   bool rising = mappedSignal > last;
@@ -149,11 +197,77 @@ void reactiveRandomSimple() {
   }
 }
 
+void reactiveRandomSwap() {
+  static uint16_t last = 0;
+  static uint8_t lastNumWires = 0;
+  
+  bool rising = mappedSignal > last;
+  last = mappedSignal;
+  
+  if (rising && mappedSignal > 6) {
+    // Get current pattern
+    uint8_t pattern[ACTIVE_CHANNELS];
+    sequencer.getCurrentPattern(pattern);
+    
+    // Count lit wires
+    uint8_t litCount = 0;
+    for (uint8_t i = 0; i < ACTIVE_CHANNELS; i++) {
+      if (pattern[i] == 1) litCount++;
+    }
+    
+    // If wrong number of wires lit or numWires changed, start fresh
+    if (litCount != numWires || lastNumWires != numWires) {
+      sequencer.lightNumRandomWires(numWires);
+      lastNumWires = numWires;
+      return;
+    }
+    
+    // Calculate how many to swap based on available wires
+    uint8_t darkCount = ACTIVE_CHANNELS - litCount;
+    uint8_t swapCount = (litCount >= 2 && darkCount >= 2) ? 2 : 1;
+    
+    // Pick positions to turn on (from dark wires)
+    uint8_t newOn[2];
+    for (uint8_t i = 0; i < swapCount; i++) {
+      newOn[i] = random(ACTIVE_CHANNELS);
+      uint8_t attempts = 0;
+      while (pattern[newOn[i]] == 1 && attempts++ < ACTIVE_CHANNELS) {
+        newOn[i] = (newOn[i] + 1) % ACTIVE_CHANNELS;
+      }
+      // Mark as occupied so next one doesn't pick it
+      if (i == 0 && swapCount == 2) pattern[newOn[i]] = 2;
+    }
+    if (swapCount == 2) pattern[newOn[0]] = 1; // Restore original value
+    
+    // Pick positions to turn off (from lit wires)
+    uint8_t newOff[2];
+    for (uint8_t i = 0; i < swapCount; i++) {
+      newOff[i] = random(ACTIVE_CHANNELS);
+      uint8_t attempts = 0;
+      while (pattern[newOff[i]] == 0 && attempts++ < ACTIVE_CHANNELS) {
+        newOff[i] = (newOff[i] + 1) % ACTIVE_CHANNELS;
+      }
+      // Mark as occupied so next one doesn't pick it
+      if (i == 0 && swapCount == 2) pattern[newOff[i]] = 0;
+    }
+    if (swapCount == 2) pattern[newOff[0]] = 1; // Restore original value
+    
+    // Apply changes
+    for (uint8_t i = 0; i < swapCount; i++) {
+      pattern[newOn[i]] = 1;
+      pattern[newOff[i]] = 0;
+    }
+    
+    // Set the new pattern
+    sequencer.lightWiresByPattern(pattern);
+  }
+}
+
 void reactiveRandomHighLow() {
   static uint16_t last = 0;
   static uint32_t lastHighMs = 0;
 
-  const uint8_t TH_MED = 5;
+  const uint8_t TH_MED = 2;
   const uint8_t TH_HIGH = 7;
   const uint32_t LOW_MODE_COOLDOWN_MS = 1000;
 
@@ -176,14 +290,41 @@ void reactiveRandomHighLow() {
   }
 }
 
-void fixedPulseUp() {
+void reactiveLinearSweep() {
+  static uint16_t last = 0;
+  static uint8_t startIndex = 0;
+
+  const uint8_t THRESHOLD = 6;
+
+  uint16_t cur = mappedSignal;
+  bool rising = cur > last;
+  last = cur;
+
+  if (!rising || cur <= THRESHOLD) return;
+
+  uint8_t pattern[ACTIVE_CHANNELS];
+  for (uint8_t i = 0; i < ACTIVE_CHANNELS; i++) {
+    pattern[i] = 0;
+  }
+
+  for (uint8_t k = 0; k < numWires; k++) {
+    uint8_t idx = (startIndex + k) % ACTIVE_CHANNELS;
+    pattern[idx] = 1;
+  }
+
+  startIndex = (startIndex + 1) % ACTIVE_CHANNELS;
+
+  sequencer.lightWiresByPattern(pattern);
+}
+
+void periodicPulseUp() {
   for (int i = 0; i <= ACTIVE_CHANNELS; i++) {
     sequencer.lightWiresAtIndex(i);
     delay(currentDelay());
   }
 }
 
-void fixedPulseUpDown() {
+void periodicPulseUpDown() {
   for (int i = 0; i <= ACTIVE_CHANNELS - 1; i++) {
     sequencer.lightWiresAtIndex(i);
     delay(currentDelay());
@@ -194,14 +335,14 @@ void fixedPulseUpDown() {
   }
 }
 
-void fixedFlash() {
+void periodicFlash() {
   sequencer.lightAll();
   delay(currentDelay());
   sequencer.lightNone();
   delay(currentDelay());
 }
 
-void fixedFlashWithDecay() {
+void periodicFlashWithDecay() {
   sequencer.lightAll();
   delay(currentDelay());
   for (int i = ACTIVE_CHANNELS - 1; i >= 0; i--) {
@@ -210,7 +351,7 @@ void fixedFlashWithDecay() {
   }
 }
 
-void fixedRandom() {
+void periodicRandom() {
   sequencer.lightRandomWires();
   delay(currentDelay());
 }
@@ -356,7 +497,7 @@ void processSample() {
 }
 
 uint16_t currentDelay() {
-  return fixedModeDelays[currentDelayIndex];
+  return periodicModeDelays[currentDelayIndex];
 }
 
 // ---------------- DEBUGGING ----------------

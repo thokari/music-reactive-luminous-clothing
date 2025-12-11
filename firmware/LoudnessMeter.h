@@ -35,7 +35,7 @@ public:
 
 private:
   void samplePeakToPeak();
-  void sampleRms();
+  void sampleEnvelope();
   uint8_t micOut;
   uint8_t micGain;
   uint32_t micSampleWindowMicros;
@@ -46,6 +46,9 @@ private:
   uint16_t rmsHigh;
   Mode mode;
   Gain gain;
+
+  uint16_t prevFullMin;
+  uint16_t prevFullMax;
 };
 
 #endif

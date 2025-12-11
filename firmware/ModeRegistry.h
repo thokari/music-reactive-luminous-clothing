@@ -1,6 +1,5 @@
 #ifndef MODE_REGISTRY_H
 #define MODE_REGISTRY_H
-
 #include "Arduino.h"
 
 enum class ModeType : uint8_t {
@@ -9,10 +8,10 @@ enum class ModeType : uint8_t {
 };
 
 struct Mode {
-  const char* label; // e.g., "R1", "F1"
+  const char* label;
   ModeType type;
   void (*run)();
-  void (*onEnter)(); // optional hook when entering mode (can be nullptr)
+  void (*onEnter)();
 };
 
 extern const Mode modes[];

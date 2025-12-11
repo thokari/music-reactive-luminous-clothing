@@ -15,8 +15,12 @@ LoudnessMeter::LoudnessMeter(
   this->peakToPeakHigh = defaultPeakToPeakHigh;
   this->rmsLow = defaultRmsLow;
   this->rmsHigh = defaultRmsHigh;
+
   this->mode = PEAK_TO_PEAK;
   this->gain = HIGH_GAIN;
+
+  this->prevFullMin = 512;
+  this->prevFullMax = 512;
 }
 
 void LoudnessMeter::begin() {
@@ -33,7 +37,7 @@ void LoudnessMeter::readAudioSample() {
       samplePeakToPeak();
       break;
     case RMS:
-      sampleRms();
+      sampleEnvelope();
       break;
   }
 }
@@ -41,31 +45,52 @@ void LoudnessMeter::readAudioSample() {
 void LoudnessMeter::samplePeakToPeak() {
   uint16_t currentMin = MAX_SIGNAL;
   uint16_t currentMax = 0;
+  uint16_t numSamples = 0;
   const uint32_t start = micros();
+
   while (micros() - start < micSampleWindowMicros) {
     uint16_t currentSample = analogRead(micOut);
     currentMin = min(currentMin, currentSample);
     currentMax = max(currentMax, currentSample);
+    numSamples++;
   }
+
   signal = currentMax - currentMin;
+
+#if DEBUG
+  Serial.println(numSamples);
+#endif
 }
 
-void LoudnessMeter::sampleRms() {
-  uint16_t currentSample = 0;
-  uint64_t currentSum = 0;
-  const uint32_t start = micros();
-  uint32_t sampleCount = 0;
+void LoudnessMeter::sampleEnvelope() {
+  uint16_t currentMin = MAX_SIGNAL;
+  uint16_t currentMax = 0;
+
+  uint32_t start = micros();
+
   while (micros() - start < micSampleWindowMicros) {
-    currentSample = analogRead(micOut);
-    currentSum += (uint32_t)currentSample * currentSample;
-    sampleCount++;
+    uint16_t s = analogRead(micOut);
+
+    if (s < currentMin) currentMin = s;
+    if (s > currentMax) currentMax = s;
   }
-  if (sampleCount == 0) {
-    signal = 0;
-    return;
-  }
-  float meanSquare = (float)currentSum / (float)sampleCount;
-  signal = (uint16_t)sqrtf(meanSquare);
+
+  uint16_t currentAmp = currentMax - currentMin;
+
+  uint16_t lowMin = (prevFullMin < currentMin) ? prevFullMin : currentMin;
+  uint16_t lowMax = (prevFullMax > currentMax) ? prevFullMax : currentMax;
+  uint16_t lowAmp = lowMax - lowMin;
+
+  prevFullMin = currentMin;
+  prevFullMax = currentMax;
+
+  signal = (uint16_t)lowAmp;
+
+#if DEBUG
+  Serial.print(lowAmp); Serial.print(",");
+  Serial.print(currentAmp); Serial.print(",");
+  Serial.println(signal);
+#endif
 }
 
 void LoudnessMeter::setLow(uint16_t low) {
@@ -124,6 +149,7 @@ uint16_t LoudnessMeter::getHigh() {
     case PEAK_TO_PEAK:
       return peakToPeakHigh;
     case RMS:
+
       return rmsHigh;
   }
 }
