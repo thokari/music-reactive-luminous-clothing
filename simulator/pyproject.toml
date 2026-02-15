@@ -1,0 +1,23 @@
+[project]
+name = "vibelight"
+version = "0.1.0"
+description = "Add your description here"
+requires-python = ">=3.12"
+dependencies = [
+    "matplotlib>=3.10.7",
+    "numpy>=2.3.5",
+    "pygame>=2.6.1",
+    "pyqt6>=6.10.0",
+    "sounddevice>=0.5.3",
+    "soundcard>=0.4.3",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+
+[project.scripts]
+vibe-light-beginning = "vibelight.main:main"
+vibe-light-claude = "vibelight.run:main"
+vibe-light-cli = "vibelight.main:main_cli"

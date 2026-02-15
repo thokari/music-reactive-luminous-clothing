@@ -1,0 +1,5 @@
+*.pxc
+__pycache__
+*.log
+*.mp4
+.venv
