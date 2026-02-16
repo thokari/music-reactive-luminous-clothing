@@ -18,6 +18,4 @@ build-backend = "hatchling.build"
 
 
 [project.scripts]
-vibe-light-beginning = "vibelight.main:main"
-vibe-light-claude = "vibelight.run:main"
-vibe-light-cli = "vibelight.main:main_cli"
+run-simulator = "vibelight.firmware:main"
