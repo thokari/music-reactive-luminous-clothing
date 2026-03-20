@@ -4,7 +4,7 @@ This repository contains the technical components of the **music-reactive lumino
 
 ## Requirements
 
-- ESP32 development board (Bluetooth + ADC)
+- ESP32 development board (WEMOS Lolin32 Lite with Bluetooth Classic + ADC)
 - Relay board for 8 channels of EL wire
 - EL inverter and EL wire
 - Microphone module (e.g. MAX9814)
