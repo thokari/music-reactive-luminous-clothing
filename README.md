@@ -25,7 +25,7 @@ ESP32 and switchboard housings: [Onshape CAD](https://cad.onshape.com/documents/
 
 Solder joint reinforcement: [Onshape CAD](https://cad.onshape.com/documents/6c9c19aba1b72c0649f08df9/w/ad78cbaf727d8cb53e10f7b2/e/3d5b6b8d3a3d566e16adb659?renderMode=0&uiState=68e6d28f3fa232eef392542c)
 
-Custom SSR PCB: solid-state relay board for 2 kHz AC switching (on personal request, e.g. an issue in this repository)
+Custom SSR PCB: solid-state relay board for 2 kHz AC switching (on personal request)
 
 ## Operation
 
