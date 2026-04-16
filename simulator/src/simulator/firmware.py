@@ -1,6 +1,5 @@
 from __future__ import annotations
 import time
-import numpy as np
 
 from constants import SIMULATED_SAMPLE_RATE, DEFAULT_INPUT_DEVICE_NAME
 from sampling import PeakToPeakSampler, p2p_to_level
