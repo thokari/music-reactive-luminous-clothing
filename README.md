@@ -20,7 +20,7 @@ This repository contains the technical components of the **music-reactive lumino
   Defines a single panel with control elements to set the gain and mode ("(R)eactive" or "(F)ixed pattern"), and control number of wires or delay, depending on mode selection.
   Import directly into the Bluetooth Electronics app.
 
-`/simulator` - Python program with UI mimicking the complete assembly
+`/simulator` - Python program with UI mimicking the complete assembly  
   Edit `mappers.py` to experiment with new rendering algorithms.
   Run the `firmware.py` to start the program.
 
