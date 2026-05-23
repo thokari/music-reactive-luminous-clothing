@@ -21,8 +21,8 @@ This repository contains the technical components of the **music-reactive lumino
   Import directly into the Bluetooth Electronics app.
 
 `/simulator` - Python program with UI mimicking the complete assembly  
-  Edit `mappers.py` to experiment with new rendering algorithms.
-  Run the `firmware.py` to start the program.
+  Edit `mappers.py` to experiment with new rendering algorithms.  
+  Run `firmware.py` to start the program.
 
 ## Hardware
 ESP32 and switchboard housings: [Onshape CAD](https://cad.onshape.com/documents/024494521b0d33fed7c6c3d4/w/9dcb6fa1bd2ba2e03fcf2a73/e/ef04a81476ce24776f6ba34d?renderMode=0&uiState=68e6cb3a9794e43e76031f91)  
